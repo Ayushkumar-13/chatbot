@@ -8,3 +8,8 @@
 ::-webkit-scrollbar{
   display: none;
 }
+
+
+html {
+  -webkit-text-size-adjust: 100%; /* ✅ Fix for the error */
+}

@@ -1,6 +1,7 @@
 import React, { useContext, useState } from 'react'
 import assets from '../assets/chat-app-assets/assets'
 import { AuthContext } from '../context/AuthContext'
+import { useNavigate } from 'react-router-dom'
 
 
 const LoginPage = () => {
@@ -13,22 +14,25 @@ const LoginPage = () => {
     const [isDataSubmitted, setIsDataSubmitted] = useState(false)
 
     const {login} = useContext(AuthContext)
+    const navigate = useNavigate();
 
-
-    const onSubmitHandler = (event) => {
+    const onSubmitHandler = async (event) => {
         event.preventDefault();
 
-        if (currentState == "Sign up" && !isDataSubmitted) {
+        if (currentState === "Sign up" && !isDataSubmitted) {
             setIsDataSubmitted(true)
             return;
         }
         try {
-           const result = login(currentState === "Sign up" ? 'signup' : 'login', {fullName, email, password, bio}) 
-           if (!result?.success)
-            alert("Login/Signup failed. Please try again.")
-            
+           const result = await login(currentState === "Sign up" ? 'signup' : 'login', {fullName, email, password, bio}) 
+           if (result?.success) {
+    navigate("/");
+} else {
+    toast.error("Login/Signup failed. Please try again.");
+}
+
         } catch (error) {
-            console.error("Auth error:", err)
+            console.error("Auth error:", error)
         }
     }
 
@@ -95,3 +99,4 @@ const LoginPage = () => {
 }
 
 export default LoginPage
+

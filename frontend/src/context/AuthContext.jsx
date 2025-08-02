@@ -15,6 +15,7 @@ export const AuthProvider = ({ children }) => {
     const [authUser, setAuthUser] = useState(null);
     const [onlineUser, setOnlineUser] = useState([]);
     const [socket, setSocket] = useState(null);
+        const [loading, setLoading] = useState(true); // ✅ Add this
 
     // Check if user is authenticated and if so, set the user data and connect the socket
     const checkAuth = async () => {
@@ -26,6 +27,8 @@ export const AuthProvider = ({ children }) => {
             }
         } catch (error) {
             toast.error(error.message)
+        } finally{
+             setLoading(false); // ✅ Mark loading complete
         }
     }
 
@@ -34,14 +37,23 @@ export const AuthProvider = ({ children }) => {
 const login = async (type, data) => {
     try {
         const res = await axios.post(`/api/auth/${type}`, data);
+
+        // Save token and set it in axios headers
         localStorage.setItem('token', res.data.token);
+        setToken(res.data.token);
+        axios.defaults.headers.common["token"] = res.data.token;
+
+        // Save user and connect socket
         setAuthUser(res.data.user);
+        connectSocket(res.data.user);
+
         return { success: true };
     } catch (err) {
         console.error("Login error:", err);
         return { success: false };
     }
 };
+
 
     // Logout function to handle user logout and socket disconnection 
     const logout = async () => {
@@ -51,7 +63,7 @@ const login = async (type, data) => {
         setOnlineUser([]);
         axios.defaults.headers.common["token"] = null;
         toast.success("Logged Out Successfully")
-        socket.disconnect();
+        if (socket) socket.disconnect();
     }
 
     //  Update Profile function to handle user profile updates
@@ -85,9 +97,11 @@ const login = async (type, data) => {
     useEffect(() => {
         if (token){
             axios.defaults.headers.common["token"] = token;
+            checkAuth();
+        }  else {
+            setLoading(false); // ✅ No token, still end loading
         }
-        checkAuth();
-    }, [])
+    }, [token])
 
     const value = {
         axios,
@@ -96,7 +110,8 @@ const login = async (type, data) => {
         socket,
         login,
         logout,
-        updateProfile
+        updateProfile,
+          loading // ✅ Export loading
     }
     return (
         <AuthContext.Provider value={value}>

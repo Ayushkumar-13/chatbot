@@ -8,7 +8,10 @@ import {Toaster} from "react-hot-toast"
 import { AuthContext } from './context/AuthContext'
 
 const App = () => {
-  const {authUser} = useContext(AuthContext)
+  const {authUser,loading} = useContext(AuthContext) // ✅ get loading
+
+if (loading) return null; // ✅ Prevent routes from rendering during auth check
+
   return (
     <div className= "min-h-screen bg-cover bg-no-repeat"
     style={{backgroundImage: `url(${assets.bgImage})`}}
