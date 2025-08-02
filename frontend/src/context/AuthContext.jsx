@@ -13,7 +13,7 @@ export const AuthProvider = ({ children }) => {
 
     const [token, setToken] = useState(localStorage.getItem("token"));
     const [authUser, setAuthUser] = useState(null);
-    const [onlineUser, setOnlineUser] = useState([]);
+    const [onlineUsers, setOnlineUsers] = useState([]);
     const [socket, setSocket] = useState(null);
         const [loading, setLoading] = useState(true); // ✅ Add this
 
@@ -65,7 +65,7 @@ const login = async (type, data) => {
         localStorage.removeItem("token")
         setToken(null);
         setAuthUser(null);
-        setOnlineUser([]);
+        setOnlineUsers([]);
         axios.defaults.headers.common["token"] = null;
         toast.success("Logged Out Successfully")
         if (socket) socket.disconnect();
@@ -96,7 +96,7 @@ const login = async (type, data) => {
         setSocket(newSocket);
 
         newSocket.on("getOnlineUsers",(userIds) => {
-            setOnlineUser(userIds);
+            setOnlineUsers(userIds);
         })
     }
     useEffect(() => {
@@ -113,7 +113,7 @@ const login = async (type, data) => {
     const value = {
         axios,
         authUser,
-        onlineUser,
+        onlineUsers,
         socket,
         login,
         logout,
