@@ -34,24 +34,29 @@ export const AuthProvider = ({ children }) => {
 
     // Login function to handle user authentication and socket connection 
    // inside AuthContext.jsx
+
 const login = async (type, data) => {
-    try {
-        const res = await axios.post(`/api/auth/${type}`, data);
+  try {
+    const res = await axios.post(`/api/auth/${type}`, data);
 
-        // Save token and set it in axios headers
-        localStorage.setItem('token', res.data.token);
-        setToken(res.data.token);
-        axios.defaults.headers.common["token"] = res.data.token;
+    if (res.data.success) {
+      const { user, token } = res.data;
 
-        // Save user and connect socket
-        setAuthUser(res.data.user);
-        connectSocket(res.data.user);
+      localStorage.setItem("token", token);
+      setToken(token);
+      axios.defaults.headers.common["token"] = token;
 
-        return { success: true };
-    } catch (err) {
-        console.error("Login error:", err);
-        return { success: false };
+      setAuthUser(user);
+      connectSocket(user);
+
+      return { success: true };
+    } else {
+      return { success: false, message: res.data.message };
     }
+  } catch (err) {
+    console.error("Login error:", err);
+    return { success: false };
+  }
 };
 
 
@@ -95,13 +100,15 @@ const login = async (type, data) => {
         })
     }
     useEffect(() => {
-        if (token){
-            axios.defaults.headers.common["token"] = token;
-            checkAuth();
-        }  else {
-            setLoading(false); // ✅ No token, still end loading
-        }
-    }, [token])
+  const savedToken = localStorage.getItem("token");
+  if (savedToken) {
+    axios.defaults.headers.common["token"] = savedToken;
+    setToken(savedToken);
+    checkAuth();
+  } else {
+    setLoading(false);
+  }
+}, []);
 
     const value = {
         axios,
@@ -111,7 +118,7 @@ const login = async (type, data) => {
         login,
         logout,
         updateProfile,
-          loading // ✅ Export loading
+        loading
     }
     return (
         <AuthContext.Provider value={value}>
