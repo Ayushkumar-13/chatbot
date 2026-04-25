@@ -1,56 +1,140 @@
-import React, { useContext, useEffect, useState } from 'react'
-import assets, { imagesDummyData } from '../assets/chat-app-assets/assets'
-import { ChatContext } from '../context/ChatContext'
-import { AuthContext } from '../context/AuthContext'
+import React, { useContext, useEffect, useState } from 'react';
+import { ChatContext } from '../context/ChatContext';
+import { AuthContext } from '../context/AuthContext';
+import { CallContext } from '../context/CallContext';
+import { InitialsAvatar } from './Sidebar';
 
 const RightSidebar = () => {
+    const { selectedUser, selectedGroup, messages } = useContext(ChatContext);
+    const { onlineUsers } = useContext(AuthContext);
+    const { startCall } = useContext(CallContext);
 
-    const {selectedUser, messages} = useContext(ChatContext)
-    const {logout, onlineUsers} = useContext(AuthContext)
-    const [messageImages, setMessageImages] = useState([])
+    const [mediaImages, setMediaImages] = useState([]);
+    const [expanded, setExpanded] = useState(false);
 
-    // Get all images from the messages and set them to state 
-    useEffect(()=> {
-        setMessageImages(
-          messages.filter(msg => msg.image).map(msg => msg.image)
-        )
-    },[messages])
+    useEffect(() => {
+        setMediaImages(messages.filter(m => m.image).map(m => m.image));
+    }, [messages]);
 
-  return selectedUser && (
-    <div className={`bg-[#8185B2]/10 text-white w-full relative overflow-y-scroll ${selectedUser ? "max-md:hidden" : "" }`}>
+    const active = selectedUser || selectedGroup;
+    const isGroup = !!selectedGroup;
 
-      <div className='pt-16 flex flex-col items-center gap-2 text-xs font-light mx-auto'>
-        <img src={selectedUser ?.profilePic || assets.avatar_icon} alt=""
-        className='w-20 aspect-[1/1] rounded-full' />
-        <h1 className='px-10 text-xl font-medium mx-auto flex items-center gap-2'> 
-           {onlineUsers.includes(selectedUser._id) && <p className='w-2 h-2 rounded-full bg-green-500'></p>}
-            {selectedUser.fullName} 
-            </h1>
-            <p className='px-10 mx-auto'> {selectedUser.bio} </p>
-      </div>
-      <hr className='border-[#ffffff50] my-4' />
+    if (!active) return null;
 
-      <div className='px-5 text-xs'> 
-        <p>Media</p>
-        <div className='mt-2 max-h-[200px] overflow-y-scroll grid grid-cols-2 gap-4 opacity-80'>
-            {
-                messageImages.map((url,index) => (
-                    <div key={index} onClick={() => window.open(url)} 
-                    className='cursor-pointer rounded'>
-                        <img src= {url} alt="" 
-                        className='h-full rounded-md'/>
+    const isOnline = !isGroup && onlineUsers.includes(selectedUser._id);
+    const name = active.fullName || active.name;
+    const avatar = active.profilePic || active.avatar;
+
+    return (
+        <div style={{
+            background: 'var(--bg-primary)', height: '100%', display: 'flex', flexDirection: 'column',
+            borderLeft: '1px solid var(--border-color)', overflow: 'hidden'
+        }} className="max-md:hidden">
+            {/* ── Profile Section ───────────────────────────────────── */}
+            <div style={{ background: 'var(--bg-secondary)', padding: '40px 20px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                {avatar
+                    ? <img src={avatar} style={{ width: 88, height: 88, borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                    : <InitialsAvatar name={name} size={88} />
+                }
+                <div style={{ textAlign: 'center' }}>
+                    <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500, color: 'var(--text-primary)' }}>{name}</h2>
+                    <p style={{ margin: '4px 0 0', fontSize: 13, color: isOnline ? 'var(--app-accent)' : 'var(--text-secondary)' }}>
+                        {isGroup
+                            ? `${active.members?.length || 0} members`
+                            : (isOnline ? 'Online' : 'Offline')
+                        }
+                    </p>
+                </div>
+
+                {/* Bio / Description */}
+                {(active.bio || active.description) && (
+                    <p style={{ fontSize: 13, color: 'var(--text-secondary)', textAlign: 'center', margin: '4px 0 0', lineHeight: 1.5 }}>
+                        {active.bio || active.description}
+                    </p>
+                )}
+
+                {/* Call buttons (1:1 only) */}
+                {!isGroup && (
+                    <div style={{ display: 'flex', gap: 24, marginTop: 8 }}>
+                        {[
+                            { type: 'audio', icon: <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>, label: 'Audio' },
+                            { type: 'video', icon: <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>, label: 'Video' }
+                        ].map(({ type, icon, label }) => (
+                            <button
+                                key={type}
+                                onClick={() => startCall(selectedUser, type)}
+                                style={{
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                                    background: 'var(--bg-input)', border: 'none', cursor: 'pointer',
+                                    borderRadius: 12, padding: '12px 20px', color: 'var(--app-accent)',
+                                    transition: 'background 0.15s'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-input)'}
+                            >
+                                {icon}
+                                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{label}</span>
+                            </button>
+                        ))}
                     </div>
-                ))
-            }
+                )}
+            </div>
 
+            <div className="hover-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '0 0 20px' }}>
+                {/* Group Members */}
+                {isGroup && active.members && (
+                    <div style={{ padding: '0 0 8px' }}>
+                        <p style={{ margin: 0, padding: '14px 20px 8px', fontSize: 13, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '1px solid var(--border-color)' }}>
+                            Members
+                        </p>
+                        {active.members.map((m, i) => {
+                            const user = m.userId;
+                            if (!user) return null;
+                            return (
+                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px' }}>
+                                    {user.profilePic
+                                        ? <img src={user.profilePic} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                                        : <InitialsAvatar name={user.fullName} size={40} />
+                                    }
+                                    <div style={{ flex: 1 }}>
+                                        <p style={{ margin: 0, fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>{user.fullName}</p>
+                                        {m.role === 'admin' && <p style={{ margin: 0, fontSize: 11, color: 'var(--app-accent)' }}>Admin</p>}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {/* Media Gallery */}
+                {mediaImages.length > 0 && (
+                    <div style={{ padding: '0 16px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 4px 10px', borderTop: '1px solid var(--border-color)' }}>
+                            <span style={{ fontSize: 13, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                Media ({mediaImages.length})
+                            </span>
+                            {mediaImages.length > 6 && (
+                                <button onClick={() => setExpanded(p => !p)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--app-accent)', fontSize: 12 }}>
+                                    {expanded ? 'See less' : 'See all'}
+                                </button>
+                            )}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
+                            {(expanded ? mediaImages : mediaImages.slice(-6)).map((url, i) => (
+                                <div key={i} onClick={() => window.open(url)} style={{ aspectRatio: '1', cursor: 'pointer', borderRadius: 6, overflow: 'hidden', background: 'var(--bg-input)' }}>
+                                    <img src={url} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.2s' }}
+                                        onMouseEnter={e => e.target.style.transform = 'scale(1.05)'}
+                                        onMouseLeave={e => e.target.style.transform = 'scale(1)'}
+                                        alt=""
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
-      </div>
+    );
+};
 
-      <button onClick={() => logout()} className='absolute bottom-5 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-purple-400 to bg-violet-600 text-white border-none text-sm font-light py-2 px-20 rounded-full cursor-pointer'>
-        Logout
-      </button>
-    </div>
-  )
-}
-
-export default RightSidebar
+export default RightSidebar;

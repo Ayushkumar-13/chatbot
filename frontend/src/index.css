@@ -1,15 +1,263 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
 
-*{
-  font-family: "Outfit", sans-serif;
+@custom-variant dark (&:is(.dark *));
+
+/* ── ChatApp Design Tokens ───────────────────────────────── */
+:root {
+  /* App colors */
+  --bg-primary:        #111b21;
+  --bg-secondary:      #0b141a;
+  --bg-panel:          #1f2c33;
+  --bg-input:          #2a3942;
+  --bg-bubble-sent:    #005c4b;
+  --bg-bubble-recv:    #202c33;
+  --bg-hover:          #2a3942;
+  --bg-selected:       #2a3942;
+  --bg-header:         #202c33;
+  --bg-overlay:        rgba(0,0,0,0.6);
+
+  --text-primary:      #e9edef;
+  --text-secondary:    #8696a0;
+  --text-muted:        #667781;
+  --text-link:         #53bdeb;
+
+  /* Our green accent (keep separate from shadcn --accent) */
+  --app-accent:        #00a884;
+  --app-accent-hover:  #017561;
+  --danger:            #f15c6d;
+
+  --border-color:      #233138;
+  --tick-grey:         #8696a0;
+  --tick-blue:         #53bdeb;
+  --chat-bg-dot:       rgba(134,150,160,0.06);
+  --shadow:            0 2px 8px rgba(0,0,0,0.4);
+  --radius-msg:        8px;
+
+  /* ── Override ALL shadcn variables to dark theme ─────── */
+  --background:             #0b141a;
+  --foreground:             #e9edef;
+  --card:                   #1f2c33;
+  --card-foreground:        #e9edef;
+  --popover:                #233138;
+  --popover-foreground:     #e9edef;
+  --primary:                #00a884;
+  --primary-foreground:     #ffffff;
+  --secondary:              #2a3942;
+  --secondary-foreground:   #e9edef;
+  --muted:                  #2a3942;
+  --muted-foreground:       #8696a0;
+  --accent:                 #2a3942;
+  --accent-foreground:      #e9edef;
+  --destructive:            #f15c6d;
+  --border:                 #233138;
+  --input:                  #2a3942;
+  --ring:                   #00a884;
+  --radius:                 0.5rem;
+
+  /* Charts */
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+
+  /* Sidebar */
+  --sidebar:                   #111b21;
+  --sidebar-foreground:        #e9edef;
+  --sidebar-primary:           #00a884;
+  --sidebar-primary-foreground:#ffffff;
+  --sidebar-accent:            #2a3942;
+  --sidebar-accent-foreground: #e9edef;
+  --sidebar-border:            #233138;
+  --sidebar-ring:              #00a884;
 }
 
-::-webkit-scrollbar{
-  display: none;
+* {
+  font-family: 'Inter', system-ui, sans-serif;
+  box-sizing: border-box;
 }
 
+body {
+  margin: 0;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* ── Scrollbar ───────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #374248; border-radius: 4px; }
+
+/* ── WhatsApp Chat Background Pattern ───────────────────── */
+.chat-bg {
+  background-color: var(--bg-secondary);
+  background-image: radial-gradient(var(--chat-bg-dot) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ── Message Ticks ───────────────────────────────────────── */
+.tick-single  { color: var(--tick-grey); }
+.tick-double  { color: var(--tick-grey); }
+.tick-seen    { color: var(--tick-blue); }
+
+/* ── Animations ──────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes pulse-ring {
+  0%   { transform: scale(0.9); opacity: 1; }
+  70%  { transform: scale(1.3); opacity: 0; }
+  100% { transform: scale(0.9); opacity: 0; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.msg-sent    { animation: slideInRight 0.15s ease-out; }
+.msg-recv    { animation: slideInLeft  0.15s ease-out; }
+.fade-in     { animation: fadeIn 0.2s ease-out; }
+
+/* ─── Call Ring Animation ─────────────────────────────── */
+.ring::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 3px solid var(--app-accent);
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+
+/* ─── Global Input Reset ──────────────────────────────── */
+input, textarea {
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+}
+input::placeholder, textarea::placeholder {
+  color: var(--text-secondary);
+}
 
 html {
-  -webkit-text-size-adjust: 100%; /* ✅ Fix for the error */
+  -webkit-text-size-adjust: 100%;
+}
+
+@theme inline {
+  --font-heading:        var(--font-sans);
+  --font-sans:        'Geist Variable', sans-serif;
+  --color-sidebar-ring:        var(--sidebar-ring);
+  --color-sidebar-border:        var(--sidebar-border);
+  --color-sidebar-accent-foreground:        var(--sidebar-accent-foreground);
+  --color-sidebar-accent:        var(--sidebar-accent);
+  --color-sidebar-primary-foreground:        var(--sidebar-primary-foreground);
+  --color-sidebar-primary:        var(--sidebar-primary);
+  --color-sidebar-foreground:        var(--sidebar-foreground);
+  --color-sidebar:        var(--sidebar);
+  --color-chart-5:        var(--chart-5);
+  --color-chart-4:        var(--chart-4);
+  --color-chart-3:        var(--chart-3);
+  --color-chart-2:        var(--chart-2);
+  --color-chart-1:        var(--chart-1);
+  --color-ring:        var(--ring);
+  --color-input:        var(--input);
+  --color-border:        var(--border);
+  --color-destructive:        var(--destructive);
+  --color-accent-foreground:        var(--accent-foreground);
+  --color-accent:        var(--app-accent);
+  --color-muted-foreground:        var(--muted-foreground);
+  --color-muted:        var(--muted);
+  --color-secondary-foreground:        var(--secondary-foreground);
+  --color-secondary:        var(--secondary);
+  --color-primary-foreground:        var(--primary-foreground);
+  --color-primary:        var(--primary);
+  --color-popover-foreground:        var(--popover-foreground);
+  --color-popover:        var(--popover);
+  --color-card-foreground:        var(--card-foreground);
+  --color-card:        var(--card);
+  --color-foreground:        var(--foreground);
+  --color-background:        var(--background);
+  --radius-sm:        calc(var(--radius) * 0.6);
+  --radius-md:        calc(var(--radius) * 0.8);
+  --radius-lg:        var(--radius);
+  --radius-xl:        calc(var(--radius) * 1.4);
+  --radius-2xl:        calc(var(--radius) * 1.8);
+  --radius-3xl:        calc(var(--radius) * 2.2);
+  --radius-4xl:        calc(var(--radius) * 2.6);
+}
+
+.dark {
+  --background:        oklch(0.145 0 0);
+  --foreground:        oklch(0.985 0 0);
+  --card:        oklch(0.205 0 0);
+  --card-foreground:        oklch(0.985 0 0);
+  --popover:        oklch(0.205 0 0);
+  --popover-foreground:        oklch(0.985 0 0);
+  --primary:        oklch(0.922 0 0);
+  --primary-foreground:        oklch(0.205 0 0);
+  --secondary:        oklch(0.269 0 0);
+  --secondary-foreground:        oklch(0.985 0 0);
+  --muted:        oklch(0.269 0 0);
+  --muted-foreground:        oklch(0.708 0 0);
+  --accent:        oklch(0.269 0 0);
+  --accent-foreground:        oklch(0.985 0 0);
+  --destructive:        oklch(0.704 0.191 22.216);
+  --border:        oklch(1 0 0 / 10%);
+  --input:        oklch(1 0 0 / 15%);
+  --ring:        oklch(0.556 0 0);
+  --chart-1:        oklch(0.87 0 0);
+  --chart-2:        oklch(0.556 0 0);
+  --chart-3:        oklch(0.439 0 0);
+  --chart-4:        oklch(0.371 0 0);
+  --chart-5:        oklch(0.269 0 0);
+  --sidebar:        oklch(0.205 0 0);
+  --sidebar-foreground:        oklch(0.985 0 0);
+  --sidebar-primary:        oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground:        oklch(0.985 0 0);
+  --sidebar-accent:        oklch(0.269 0 0);
+  --sidebar-accent-foreground:        oklch(0.985 0 0);
+  --sidebar-border:        oklch(1 0 0 / 10%);
+  --sidebar-ring:        oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* ── WhatsApp-like Hover Scrollbar ───────────────────────── */
+.hover-scrollbar {
+  overflow-y: auto;
+}
+.hover-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  background: transparent;
+}
+.hover-scrollbar::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+}
+.hover-scrollbar:hover::-webkit-scrollbar-thumb {
+  background: rgba(134,150,160,0.2);
+}
+.hover-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(134,150,160,0.4);
 }
