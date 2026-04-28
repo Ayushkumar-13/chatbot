@@ -120,7 +120,7 @@ export const markMessageAsSeen = async (req, res) => {
 // Send message to selected user (1:1)
 export const sendMessage = async (req, res) => {
     try {
-        const { text, image, document, poll } = req.body;
+        const { text, image, document, poll, audio, waveform } = req.body;
         const receiverId = req.params.id;
         const senderId = req.user._id;
 
@@ -128,6 +128,14 @@ export const sendMessage = async (req, res) => {
         if (image) {
             const uploadResponse = await cloudinary.uploader.upload(image);
             imageUrl = uploadResponse.secure_url;
+        }
+
+        let audioUrl;
+        if (audio) {
+            // Sanitize audio data URI: some browsers add ;codecs=opus which Cloudinary might not like
+            const sanitizedAudio = audio.replace(/;codecs=[^;,]+/, "");
+            const uploadResponse = await cloudinary.uploader.upload(sanitizedAudio, { resource_type: "video" });
+            audioUrl = uploadResponse.secure_url;
         }
 
         let documentData;
@@ -145,10 +153,12 @@ export const sendMessage = async (req, res) => {
             senderId,
             receiverId,
             image: imageUrl,
+            audio: audioUrl,
+            waveform: waveform || [],
             document: documentData,
             poll: pollData,
             text,
-            messageType: document ? "document" : poll ? "poll" : image ? "image" : "text",
+            messageType: audio ? "audio" : document ? "document" : poll ? "poll" : image ? "image" : "text",
             status: "sent"
         });
 
@@ -181,7 +191,7 @@ export const sendMessage = async (req, res) => {
 // Send message to a group
 export const sendGroupMessage = async (req, res) => {
     try {
-        const { text, image, document, poll } = req.body;
+        const { text, image, document, poll, audio, waveform } = req.body;
         const groupId = req.params.groupId;
         const senderId = req.user._id;
 
@@ -194,6 +204,14 @@ export const sendGroupMessage = async (req, res) => {
         if (image) {
             const upload = await cloudinary.uploader.upload(image);
             imageUrl = upload.secure_url;
+        }
+
+        let audioUrl;
+        if (audio) {
+            // Sanitize audio data URI
+            const sanitizedAudio = audio.replace(/;codecs=[^;,]+/, "");
+            const upload = await cloudinary.uploader.upload(sanitizedAudio, { resource_type: "video" });
+            audioUrl = upload.secure_url;
         }
 
         let documentData;
@@ -212,9 +230,11 @@ export const sendGroupMessage = async (req, res) => {
             groupId,
             text,
             image: imageUrl,
+            audio: audioUrl,
+            waveform: waveform || [],
             document: documentData,
             poll: pollData,
-            messageType: document ? "document" : poll ? "poll" : image ? "image" : "text",
+            messageType: audio ? "audio" : document ? "document" : poll ? "poll" : image ? "image" : "text",
             status: "sent"
         });
 
@@ -244,9 +264,9 @@ export const getGroupMessages = async (req, res) => {
         const { groupId } = req.params;
         const myId = req.user._id;
 
-        const messages = await Message.find({ 
-            groupId, 
-            deletedFor: { $ne: myId } 
+        const messages = await Message.find({
+            groupId,
+            deletedFor: { $ne: myId }
         }).sort({ createdAt: 1 });
 
         // Mark as seen by this user
@@ -302,7 +322,7 @@ export const votePoll = async (req, res) => {
         if (optionIndex !== null && optionIndex !== undefined && message.poll.options[optionIndex]) {
             const targetOption = message.poll.options[optionIndex];
             const hasVotedIndex = targetOption.votes.findIndex(v => v.toString() === userId.toString());
-            
+
             // Remove previous vote from ANY option
             message.poll.options.forEach(opt => {
                 opt.votes = opt.votes.filter(v => v.toString() !== userId.toString());

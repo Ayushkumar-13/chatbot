@@ -136,6 +136,39 @@ export const removeMember = async (req, res) => {
     }
 };
 
+// Update member role (admin only)
+export const updateMemberRole = async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const { userId: targetId, role: newRole } = req.body;
+        const adminId = req.user._id;
+
+        if (!["admin", "member"].includes(newRole)) {
+            return res.json({ success: false, message: "Invalid role" });
+        }
+
+        const group = await Group.findById(groupId);
+        if (!group) return res.json({ success: false, message: "Group not found" });
+
+        const admin = group.members.find(m => m.userId.toString() === adminId.toString());
+        if (!admin || admin.role !== "admin") {
+            return res.json({ success: false, message: "Only admins can change roles" });
+        }
+
+        const member = group.members.find(m => m.userId.toString() === targetId);
+        if (!member) return res.json({ success: false, message: "Member not found" });
+
+        member.role = newRole;
+        await group.save();
+
+        const updated = await Group.findById(groupId).populate("members.userId", "-password");
+        res.json({ success: true, group: updated });
+    } catch (error) {
+        console.log(error.message);
+        res.json({ success: false, message: error.message });
+    }
+};
+
 // Leave group
 export const leaveGroup = async (req, res) => {
     try {

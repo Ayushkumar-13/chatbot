@@ -16,9 +16,11 @@ const messageSchema = new mongoose.Schema({
     },
     text: { type: String },
     image: { type: String },
+    audio: { type: String },
+    waveform: [Number],
     messageType: {
         type: String,
-        enum: ["text", "image", "document", "poll"],
+        enum: ["text", "image", "document", "poll", "audio"],
         default: "text"
     },
     // Document Payload
