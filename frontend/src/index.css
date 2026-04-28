@@ -4,8 +4,6 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
-@custom-variant dark (&:is(.dark *));
-
 /* ── ChatApp Design Tokens ───────────────────────────────── */
 :root {
   /* App colors */
@@ -94,9 +92,11 @@ body {
 
 /* ── WhatsApp Chat Background Pattern ───────────────────── */
 .chat-bg {
-  background-color: var(--bg-secondary);
-  background-image: radial-gradient(var(--chat-bg-dot) 1px, transparent 1px);
-  background-size: 24px 24px;
+  background-color: #0b141a;
+  background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png");
+  background-repeat: repeat;
+  background-attachment: fixed;
+  filter: opacity(0.06) invert(1);
 }
 
 /* ── Message Ticks ───────────────────────────────────────── */
@@ -140,7 +140,7 @@ body {
   animation: pulse-ring 1.5s ease-out infinite;
 }
 
-/* ─── Global Input Reset ──────────────────────────────── */
+/* ── WhatsApp-like Global Styles ──────────────── */
 input, textarea {
   outline: none;
   background: transparent;
@@ -148,10 +148,6 @@ input, textarea {
 }
 input::placeholder, textarea::placeholder {
   color: var(--text-secondary);
-}
-
-html {
-  -webkit-text-size-adjust: 100%;
 }
 
 @theme inline {
@@ -233,7 +229,7 @@ html {
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
   body {
     @apply bg-background text-foreground;

@@ -1,5 +1,5 @@
 import React, { useContext, useState } from 'react';
-import PhotoCropper from './PhotoCropper';
+import PhotoCropper from '../profile/PhotoCropper';
 
 const CreateGroup = ({ users, onClose, onCreate }) => {
     const [name, setName] = useState('');

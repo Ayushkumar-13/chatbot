@@ -5,7 +5,7 @@ import LoginPage from './pages/LoginPage'
 import ProfilePage from './pages/ProfilePage'
 import { Toaster } from "react-hot-toast"
 import { AuthContext } from './context/AuthContext'
-import CallScreen from './components/CallScreen'
+import CallScreen from './components/chat/CallScreen'
 import { CallContext } from './context/CallContext'
 
 const App = () => {

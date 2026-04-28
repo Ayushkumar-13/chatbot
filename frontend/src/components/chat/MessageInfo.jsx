@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext } from '../../context/AuthContext';
 
 const MessageInfo = ({ messageId, onClose }) => {
     const { axios } = useContext(AuthContext);

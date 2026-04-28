@@ -1,8 +1,7 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { AuthContext } from "./AuthContext";
 import toast from "react-hot-toast";
-
-export const ChatContext = createContext();
+import { ChatContext } from "./ChatContextInstance";
 
 export const ChatProvider = ({ children }) => {
     const [messages, setMessages] = useState([]);
@@ -12,8 +11,9 @@ export const ChatProvider = ({ children }) => {
     const [selectedGroup, setSelectedGroup] = useState(null);
     const [unseenMessages, setUnseenMessages] = useState({});
     const [lastMessages, setLastMessages] = useState({});
+    const [showRightSidebar, setShowRightSidebar] = useState(false);
 
-    const { socket, axios } = useContext(AuthContext);
+    const { socket, axios, authUser } = useContext(AuthContext);
 
     // ── Fetch Users (sidebar) ────────────────────────────────────────────
     const getUsers = async () => {
@@ -77,30 +77,79 @@ export const ChatProvider = ({ children }) => {
 
     // ── Send 1:1 Message ─────────────────────────────────────────────────
     const sendMessage = async (messageData) => {
+        if (!selectedUser) return;
+        const tempId = Date.now().toString() + Math.random();
+        const optimisticMsg = {
+            ...messageData,
+            _id: tempId,
+            senderId: authUser._id,
+            receiverId: selectedUser._id,
+            createdAt: new Date().toISOString(),
+            status: "sending",
+            messageType: messageData.audio ? "audio" : 
+                         messageData.document ? "document" : 
+                         messageData.poll ? "poll" : 
+                         messageData.image ? "image" : "text",
+            isOptimistic: true 
+        };
+
+        // Add to UI immediately
+        setMessages(prev => [...prev, optimisticMsg]);
+        
+        console.log("Sending message to:", selectedUser._id, messageData);
+        
         try {
             const { data } = await axios.post(`/api/messages/send/${selectedUser._id}`, messageData);
+            console.log("Response from server:", data);
+            
             if (data.success) {
-                setMessages(prev => [...prev, data.newMessage]);
+                setMessages(prev => prev.map(m => m._id === tempId ? data.newMessage : m));
                 setLastMessages(prev => ({ ...prev, [selectedUser._id]: data.newMessage }));
             } else {
-                toast.error(data.message);
+                toast.error(data.message || "Failed to send message");
+                setMessages(prev => prev.filter(m => m._id !== tempId));
             }
         } catch (error) {
-            toast.error(error.response?.data?.message || "Something went wrong");
+            console.error("Message send error:", error);
+            toast.error(error.response?.data?.message || "Network error. Please try again.");
+            setMessages(prev => prev.filter(m => m._id !== tempId));
         }
     };
 
     // ── Send Group Message ───────────────────────────────────────────────
     const sendGroupMessage = async (messageData) => {
+        if (!selectedGroup) return;
+        const tempId = "temp-" + Date.now();
+        const optimisticMsg = {
+            ...messageData,
+            _id: tempId,
+            senderId: authUser._id,
+            groupId: selectedGroup._id,
+            createdAt: new Date().toISOString(),
+            status: "sending",
+            messageType: messageData.audio ? "audio" : 
+                         messageData.document ? "document" : 
+                         messageData.poll ? "poll" : 
+                         messageData.image ? "image" : "text"
+        };
+        setMessages(prev => [...prev, optimisticMsg]);
+
+        console.log("Sending group message to:", selectedGroup._id, messageData);
+
         try {
             const { data } = await axios.post(`/api/messages/send-group/${selectedGroup._id}`, messageData);
+            console.log("Group response:", data);
+            
             if (data.success) {
-                setMessages(prev => [...prev, data.newMessage]);
+                setMessages(prev => prev.map(m => m._id === tempId ? data.newMessage : m));
             } else {
-                toast.error(data.message);
+                toast.error(data.message || "Failed to send group message");
+                setMessages(prev => prev.filter(m => m._id !== tempId));
             }
         } catch (error) {
-            toast.error(error.response?.data?.message || "Something went wrong");
+            console.error("Group message error:", error);
+            toast.error(error.response?.data?.message || "Network error. Please try again.");
+            setMessages(prev => prev.filter(m => m._id !== tempId));
         }
     };
 
@@ -206,7 +255,8 @@ export const ChatProvider = ({ children }) => {
         lastMessages,
         getUsers, getGroups, createGroup,
         getMessages, getGroupMessages,
-        sendMessage, sendGroupMessage, deleteMessagesAction
+        sendMessage, sendGroupMessage, deleteMessagesAction,
+        showRightSidebar, setShowRightSidebar
     };
 
     return (

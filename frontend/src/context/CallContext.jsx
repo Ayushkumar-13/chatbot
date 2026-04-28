@@ -18,16 +18,24 @@ export const CallProvider = ({ children }) => {
     // status: 'calling' | 'incoming' | 'in-call'
 
     const [localStream, setLocalStream] = useState(null);
-    const [remoteStream, setRemoteStream] = useState(null);
+    const [remoteStreams, setRemoteStreams] = useState({}); // { userId: stream }
+    const [remoteUsers, setRemoteUsers] = useState({}); // { userId: userObject }
 
-    const pcRef = useRef(null); // RTCPeerConnection
+    const pcsRef = useRef(new Map()); // Map<userId, RTCPeerConnection>
     const localVideoRef = useRef(null);
-    const remoteVideoRef = useRef(null);
 
     // ── Create Peer Connection ───────────────────────────────────────────
-    const createPeer = (targetUserId) => {
+    const createPeer = (targetUserId, stream) => {
+        if (pcsRef.current.has(targetUserId)) {
+            pcsRef.current.get(targetUserId).close();
+        }
+
         const pc = new RTCPeerConnection(ICE_SERVERS);
-        pcRef.current = pc;
+        pcsRef.current.set(targetUserId, pc);
+
+        if (stream) {
+            stream.getTracks().forEach(t => pc.addTrack(t, stream));
+        }
 
         pc.onicecandidate = (e) => {
             if (e.candidate) {
@@ -39,59 +47,94 @@ export const CallProvider = ({ children }) => {
         };
 
         pc.ontrack = (e) => {
-            setRemoteStream(e.streams[0]);
+            setRemoteStreams(prev => ({
+                ...prev,
+                [targetUserId]: e.streams[0]
+            }));
+        };
+
+        pc.onconnectionstatechange = () => {
+            if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+                removePeer(targetUserId);
+            }
         };
 
         return pc;
     };
 
-    // ── Start Call (caller side) ─────────────────────────────────────────
-    const startCall = async (targetUser, type = "video") => {
+    const removePeer = (userId) => {
+        if (pcsRef.current.has(userId)) {
+            pcsRef.current.get(userId).close();
+            pcsRef.current.delete(userId);
+        }
+        setRemoteStreams(prev => {
+            const next = { ...prev };
+            delete next[userId];
+            return next;
+        });
+        setRemoteUsers(prev => {
+            const next = { ...prev };
+            delete next[userId];
+            return next;
+        });
+    };
+
+    // ── Start Call (Initiator) ───────────────────────────────────────────
+    const startCall = async (target, type = "video") => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: type === "video",
+                video: type === "video" ? { facingMode: 'user' } : false,
                 audio: true
             });
             setLocalStream(stream);
 
-            const pc = createPeer(targetUser._id);
-            stream.getTracks().forEach(t => pc.addTrack(t, stream));
+            // If target is an array (group), call everyone
+            const targets = Array.isArray(target) ? target : [target];
+            
+            for (const user of targets) {
+                if (user._id === authUser._id) continue;
+                
+                const pc = createPeer(user._id, stream);
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
 
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
+                socket.emit("call:offer", {
+                    to: user._id,
+                    offer,
+                    callType: type,
+                    callerInfo: {
+                        _id: authUser._id,
+                        fullName: authUser.fullName,
+                        profilePic: authUser.profilePic
+                    }
+                });
+                
+                setRemoteUsers(prev => ({ ...prev, [user._id]: user }));
+            }
 
-            socket.emit("call:offer", {
-                to: targetUser._id,
-                offer,
-                callType: type,
-                callerInfo: {
-                    _id: authUser._id,
-                    fullName: authUser.fullName,
-                    profilePic: authUser.profilePic
-                }
+            setCallState({ 
+                type, 
+                status: "calling", 
+                remoteUser: Array.isArray(target) ? { fullName: "Group Call", _id: "group" } : target 
             });
-
-            setCallState({ type, status: "calling", remoteUser: targetUser });
         } catch (err) {
             toast.error("Could not access camera/microphone");
             console.error(err);
         }
     };
 
-    // ── Answer Call (receiver side) ──────────────────────────────────────
+    // ── Answer Call ──────────────────────────────────────────────────────
     const answerCall = async () => {
         if (!callState?.callData) return;
         const { callData } = callState;
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: callData.callType === "video",
+                video: callData.callType === "video" ? { facingMode: 'user' } : false,
                 audio: true
             });
             setLocalStream(stream);
 
-            const pc = createPeer(callData.from);
-            stream.getTracks().forEach(t => pc.addTrack(t, stream));
-
+            const pc = createPeer(callData.from, stream);
             await pc.setRemoteDescription(new RTCSessionDescription(callData.offer));
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
@@ -101,6 +144,7 @@ export const CallProvider = ({ children }) => {
                 answer
             });
 
+            setRemoteUsers(prev => ({ ...prev, [callData.from]: callData.callerInfo }));
             setCallState(prev => ({ ...prev, status: "in-call" }));
         } catch (err) {
             toast.error("Could not access camera/microphone");
@@ -108,7 +152,6 @@ export const CallProvider = ({ children }) => {
         }
     };
 
-    // ── Reject Call ──────────────────────────────────────────────────────
     const rejectCall = () => {
         if (callState?.callData) {
             socket.emit("call:rejected", { to: callState.callData.from });
@@ -116,43 +159,34 @@ export const CallProvider = ({ children }) => {
         cleanup();
     };
 
-    // ── End Call ─────────────────────────────────────────────────────────
     const endCall = () => {
-        if (callState?.remoteUser) {
-            socket.emit("call:ended", { to: callState.remoteUser._id });
-        }
+        pcsRef.current.forEach((pc, userId) => {
+            socket.emit("call:ended", { to: userId });
+        });
         cleanup();
     };
 
-    // ── Toggle Mute ───────────────────────────────────────────────────────
     const toggleMute = () => {
         if (localStream) {
-            localStream.getAudioTracks().forEach(t => {
-                t.enabled = !t.enabled;
-            });
+            localStream.getAudioTracks().forEach(t => t.enabled = !t.enabled);
         }
     };
 
-    // ── Toggle Camera ─────────────────────────────────────────────────────
     const toggleCamera = () => {
         if (localStream) {
-            localStream.getVideoTracks().forEach(t => {
-                t.enabled = !t.enabled;
-            });
+            localStream.getVideoTracks().forEach(t => t.enabled = !t.enabled);
         }
     };
 
-    // ── Cleanup ──────────────────────────────────────────────────────────
     const cleanup = () => {
-        if (pcRef.current) {
-            pcRef.current.close();
-            pcRef.current = null;
-        }
+        pcsRef.current.forEach(pc => pc.close());
+        pcsRef.current.clear();
         if (localStream) {
             localStream.getTracks().forEach(t => t.stop());
             setLocalStream(null);
         }
-        setRemoteStream(null);
+        setRemoteStreams({});
+        setRemoteUsers({});
         setCallState(null);
     };
 
@@ -170,30 +204,32 @@ export const CallProvider = ({ children }) => {
         });
 
         socket.on("call:answered", async (data) => {
-            if (pcRef.current) {
-                await pcRef.current.setRemoteDescription(
-                    new RTCSessionDescription(data.answer)
-                );
+            const pc = pcsRef.current.get(data.from);
+            if (pc) {
+                await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
             }
             setCallState(prev => ({ ...prev, status: "in-call" }));
         });
 
         socket.on("call:ice-candidate", async (data) => {
-            if (pcRef.current && data.candidate) {
-                await pcRef.current.addIceCandidate(
-                    new RTCIceCandidate(data.candidate)
-                );
+            const pc = pcsRef.current.get(data.from);
+            if (pc && data.candidate) {
+                await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
             }
         });
 
-        socket.on("call:rejected", () => {
-            toast("Call rejected", { icon: "📵" });
-            cleanup();
+        socket.on("call:rejected", (data) => {
+            toast(`${remoteUsers[data.from]?.fullName || 'User'} rejected the call`);
+            removePeer(data.from);
+            if (pcsRef.current.size === 0) cleanup();
         });
 
-        socket.on("call:ended", () => {
-            toast("Call ended", { icon: "📞" });
-            cleanup();
+        socket.on("call:ended", (data) => {
+            removePeer(data.from);
+            if (pcsRef.current.size === 0) {
+                toast("Call ended");
+                cleanup();
+            }
         });
 
         return () => {
@@ -203,25 +239,12 @@ export const CallProvider = ({ children }) => {
             socket.off("call:rejected");
             socket.off("call:ended");
         };
-    }, [socket]);
-
-    // Attach streams to video elements when they change
-    useEffect(() => {
-        if (localVideoRef.current && localStream) {
-            localVideoRef.current.srcObject = localStream;
-        }
-    }, [localStream]);
-
-    useEffect(() => {
-        if (remoteVideoRef.current && remoteStream) {
-            remoteVideoRef.current.srcObject = remoteStream;
-        }
-    }, [remoteStream]);
+    }, [socket, remoteUsers]);
 
     return (
         <CallContext.Provider value={{
-            callState, localStream, remoteStream,
-            localVideoRef, remoteVideoRef,
+            callState, localStream, remoteStreams, remoteUsers,
+            localVideoRef,
             startCall, answerCall, rejectCall, endCall,
             toggleMute, toggleCamera
         }}>
